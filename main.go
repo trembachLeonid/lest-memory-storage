@@ -20,7 +20,7 @@ func main() {
 
 	defer listener.Close()
 
-	var storage = storage.NewInMemoryStorage()
+	var storage storage.Storage = storage.NewInMemoryStorage()
 
 	for {
 
@@ -34,7 +34,7 @@ func main() {
 	}
 }
 
-func handleConnection(conn net.Conn, storage *storage.InMemoryStorage) {
+func handleConnection(conn net.Conn, storage storage.Storage) {
 
 	defer conn.Close()
 
@@ -50,13 +50,15 @@ func handleConnection(conn net.Conn, storage *storage.InMemoryStorage) {
 		commandParts := strings.Split(ackMsg, " ")
 
 		var response []byte
+		valueParam := []byte{}
+		if len(commandParts) > 2 {
+			valueParam = []byte(commandParts[2])
+		}
+		response, err = handlers.HandleCommand(models.ActionType(commandParts[0]), commandParts[1], &valueParam, storage)
 
-		if commandParts[0] == "PING" {
-			response = []byte("PONG")
-		} else if commandParts[0] == "SET" && len(commandParts) == 3 {
-			response, err = handlers.HandleCommand(models.ActionType(commandParts[0]), commandParts[1], []byte(commandParts[2]), storage)
-		} else {
-			response = []byte("UNKNOWN COMMAND")
+		if err != nil {
+			log.Printf("Error retrieving value - %v", err)
+			response = []byte("ERROR RETRIEVING VALUE\n")
 		}
 
 		_, err = conn.Write(response)
