@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/trembachLeonid/lest-memory-storage/internal/handlers"
-	"github.com/trembachLeonid/lest-memory-storage/internal/models"
 	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
 )
 
@@ -35,7 +34,6 @@ func main() {
 }
 
 func handleConnection(conn net.Conn, storage storage.Storage) {
-
 	defer conn.Close()
 
 	for {
@@ -47,14 +45,8 @@ func handleConnection(conn net.Conn, storage storage.Storage) {
 		}
 
 		ackMsg := strings.TrimSpace(message)
-		commandParts := strings.Split(ackMsg, " ")
 
-		var response []byte
-		valueParam := []byte{}
-		if len(commandParts) > 2 {
-			valueParam = []byte(commandParts[2])
-		}
-		response, err = handlers.HandleCommand(models.ActionType(commandParts[0]), commandParts[1], &valueParam, storage)
+		response, err := handlers.HandleCommand(&ackMsg, storage)
 
 		if err != nil {
 			log.Printf("Error retrieving value - %v", err)
@@ -62,6 +54,9 @@ func handleConnection(conn net.Conn, storage storage.Storage) {
 		}
 
 		_, err = conn.Write(response)
+		if string(response) == "QUIT" {
+			break
+		}
 		if err != nil {
 			log.Printf("Server write error: %v", err)
 		}

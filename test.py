@@ -8,7 +8,7 @@ sock.sendall(b"SET key 10\n")
 response = sock.recv(1024)
 print(f"Received from server: {response.decode('utf-8').strip()}")
 
-while True:
+for i in range(3):
 
     sock.sendall(b"INC key\n")
 
@@ -16,8 +16,12 @@ while True:
     print(f"Received from server: {response.decode('utf-8').strip()}")
 
     sock.sendall(b"INC key 10\n")
-
     response = sock.recv(1024)
     print(f"Received from server: {response.decode('utf-8').strip()}")
-    sleep(10)
-    
+    sleep(2)
+
+sock.sendall(b"QUIT\n")
+
+response = sock.recv(1024)
+print(f"Received from server: {response.decode('utf-8').strip()}")
+
