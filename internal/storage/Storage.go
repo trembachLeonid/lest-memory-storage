@@ -2,6 +2,8 @@ package storage
 
 import (
 	"fmt"
+	"strconv"
+	"sync"
 )
 
 type Storage interface {
@@ -11,24 +13,39 @@ type Storage interface {
 	Increment(key string) (int, error)
 }
 
+type ValueType int
+
+const (
+	STRING ValueType = iota
+	INTEGER
+	FLOAT
+	BOOLEAN
+)
+
+type StorageValue struct {
+	Type  ValueType
+	Value any
+}
+
 type InMemoryStorage struct {
-	data map[string]string
+	mu   sync.RWMutex
+	data map[string]*StorageValue
 }
 
 func NewInMemoryStorage() *InMemoryStorage {
 	return &InMemoryStorage{
-		data: make(map[string]string),
+		data: make(map[string]*StorageValue),
 	}
 }
 
 func (s *InMemoryStorage) Set(key string, value string) error {
-	s.data[key] = value
+	s.data[key] = &StorageValue{Type: STRING, Value: value}
 	return nil
 }
 
-func (s *InMemoryStorage) Get(key string) (string, error) {
+func (s *InMemoryStorage) Get(key string) (any, error) {
 	if value, ok := s.data[key]; ok {
-		return value, nil
+		return value.Value, nil
 	}
 	return "", fmt.Errorf("key not found: %s", key)
 }
@@ -38,7 +55,33 @@ func (s *InMemoryStorage) Delete(key string) error {
 	return nil
 }
 
-func (s *InMemoryStorage) Increment(key string) (int, error) {
+func (s *InMemoryStorage) Increment(key string, incValue int64) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if incValue == 0 {
+		incValue++
+	}
 
-	return 1, nil
+	obj, ok := s.data[key]
+	if !ok {
+		return 0, fmt.Errorf("key not found: %s", key)
+	}
+
+	switch obj.Type {
+	case STRING:
+		converted, err := strconv.ParseInt(obj.Value.(string), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("value is not a number: %s", key)
+		}
+		converted += incValue
+		obj.Type = INTEGER
+		obj.Value = converted
+	case INTEGER:
+		newVal := obj.Value.(int64) + incValue
+		obj.Value = newVal
+	default:
+		return 0, fmt.Errorf("unsupported type: %s", obj.Type)
+	}
+
+	return obj.Value.(int64), nil
 }

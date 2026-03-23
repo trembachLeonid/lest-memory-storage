@@ -5,6 +5,10 @@ import (
 	"log"
 	"net"
 	"strings"
+
+	"github.com/trembachLeonid/lest-memory-storage/internal/handlers"
+	"github.com/trembachLeonid/lest-memory-storage/internal/models"
+	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
 )
 
 func main() {
@@ -16,6 +20,8 @@ func main() {
 
 	defer listener.Close()
 
+	var storage = storage.NewInMemoryStorage()
+
 	for {
 
 		conn, err := listener.Accept()
@@ -24,11 +30,11 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn)
+		go handleConnection(conn, storage)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, storage *storage.InMemoryStorage) {
 
 	defer conn.Close()
 
@@ -48,7 +54,7 @@ func handleConnection(conn net.Conn) {
 		if commandParts[0] == "PING" {
 			response = "PONG"
 		} else if commandParts[0] == "SET" && len(commandParts) == 3 {
-			response = "SET command received"
+			response, err = handlers.HandleCommand(models.ActionType(commandParts[0]), commandParts[1], commandParts[2], storage)
 		} else {
 			response = "UNKNOWN COMMAND"
 		}
