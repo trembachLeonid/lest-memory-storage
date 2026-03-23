@@ -5,18 +5,18 @@ import (
 	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
 )
 
-func HandleCommand(action models.ActionType, key string, value string, storage *storage.InMemoryStorage) (any, error) {
+func HandleCommand(action models.ActionType, key string, value []byte, storage *storage.InMemoryStorage) ([]byte, error) {
 	var err error
 	switch action {
 	case "PING":
-		return "PONG", nil
+		return []byte("PONG"), nil
 	case "SET":
 		err = storage.Set(key, value)
-		return "OK", nil
+		return []byte("OK"), nil
 	case "GET":
 		res, err := storage.Get(key)
-		return res, err
+		return []byte(res), err
 	}
 
-	return "unknown command", err
+	return []byte("unknown command"), err
 }

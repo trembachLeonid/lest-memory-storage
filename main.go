@@ -49,17 +49,17 @@ func handleConnection(conn net.Conn, storage *storage.InMemoryStorage) {
 		ackMsg := strings.TrimSpace(message)
 		commandParts := strings.Split(ackMsg, " ")
 
-		var response string
+		var response []byte
 
 		if commandParts[0] == "PING" {
-			response = "PONG"
+			response = []byte("PONG")
 		} else if commandParts[0] == "SET" && len(commandParts) == 3 {
-			response, err = handlers.HandleCommand(models.ActionType(commandParts[0]), commandParts[1], commandParts[2], storage)
+			response, err = handlers.HandleCommand(models.ActionType(commandParts[0]), commandParts[1], []byte(commandParts[2]), storage)
 		} else {
-			response = "UNKNOWN COMMAND"
+			response = []byte("UNKNOWN COMMAND")
 		}
 
-		_, err = conn.Write([]byte(response))
+		_, err = conn.Write(response)
 		if err != nil {
 			log.Printf("Server write error: %v", err)
 		}

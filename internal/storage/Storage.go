@@ -10,7 +10,7 @@ type Storage interface {
 	Set(key string, value string) error
 	Get(key string) (string, error)
 	Delete(key string) error
-	Increment(key string) (int, error)
+	Increment(key string, incValue int64) (int64, error)
 }
 
 type ValueType int
@@ -38,16 +38,28 @@ func NewInMemoryStorage() *InMemoryStorage {
 	}
 }
 
-func (s *InMemoryStorage) Set(key string, value string) error {
+func (s *InMemoryStorage) Set(key string, value []byte) error {
 	s.data[key] = &StorageValue{Type: STRING, Value: value}
 	return nil
 }
 
-func (s *InMemoryStorage) Get(key string) (any, error) {
-	if value, ok := s.data[key]; ok {
-		return value.Value, nil
+func (s *InMemoryStorage) Get(key string) ([]byte, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	value, ok := s.data[key]
+	if !ok {
+		return []byte{}, fmt.Errorf("key not found: %s", key)
 	}
-	return "", fmt.Errorf("key not found: %s", key)
+
+	switch value.Type {
+	case STRING:
+		return value.Value.([]byte), nil
+	case INTEGER:
+		return []byte(strconv.FormatInt(value.Value.(int64), 10)), nil
+	}
+
+	return []byte{}, fmt.Errorf("key not found: %s", key)
 }
 
 func (s *InMemoryStorage) Delete(key string) error {
