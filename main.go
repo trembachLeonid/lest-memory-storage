@@ -50,9 +50,10 @@ func handleConnection(conn net.Conn, storage storage.Storage) {
 
 		if err != nil {
 			log.Printf("Error retrieving value - %v", err)
-			response = []byte("ERROR RETRIEVING VALUE\n")
+			response = []byte("ERROR RETRIEVING VALUE")
 		}
 
+		response = append(response, '\r', '\n')
 		_, err = conn.Write(response)
 		if string(response) == "QUIT" {
 			break
