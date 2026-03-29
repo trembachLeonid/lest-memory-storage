@@ -3,9 +3,16 @@ package storage
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"sync"
+	"time"
+
+	"github.com/spaolacci/murmur3"
 )
+
+var val, _ = strconv.ParseUint(os.Getenv("SHARD_COUNT"), 10, 32)
+var shardCount = uint32(1024)
 
 type Storage interface {
 	Set(key string, value *[]byte) error
@@ -24,32 +31,46 @@ const (
 )
 
 type StorageValue struct {
-	Type  ValueType
-	Value any
+	Type       ValueType
+	Value      any
+	ExpireTime time.Time
 }
 
-type InMemoryStorage struct {
+type StorageShard struct {
 	mu   sync.RWMutex
 	data map[string]*StorageValue
 }
 
+type InMemoryStorage struct {
+	shards map[uint32]*StorageShard
+}
+
 func NewInMemoryStorage() *InMemoryStorage {
 	return &InMemoryStorage{
-		data: make(map[string]*StorageValue),
+		shards: make(map[uint32]*StorageShard, shardCount),
 	}
 }
 
 func (s *InMemoryStorage) Set(key string, value *[]byte) error {
-	s.data[key] = &StorageValue{Type: STRING, Value: *value}
+	shard := s.getShard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+
+	shard.data[key] = &StorageValue{Type: STRING, Value: *value}
 	return nil
 }
 
 func (s *InMemoryStorage) Get(key string) ([]byte, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	shard := s.getShard(key)
+	shard.mu.RLock()
+	defer shard.mu.RUnlock()
 
-	value, ok := s.data[key]
+	value, ok := shard.data[key]
 	if !ok {
+		return []byte{}, fmt.Errorf("key not found: %s", key)
+	}
+	if !value.ExpireTime.IsZero() && value.ExpireTime.Before(time.Now()) {
+		s.Delete(key)
 		return []byte{}, fmt.Errorf("key not found: %s", key)
 	}
 
@@ -66,14 +87,21 @@ func (s *InMemoryStorage) Get(key string) ([]byte, error) {
 }
 
 func (s *InMemoryStorage) Delete(key string) error {
-	delete(s.data, key)
+	shard := s.getShard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+
+	delete(shard.data, key)
+
 	return nil
 }
 
 func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
-	s.mu.Lock()
+	shard := s.getShard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
 
-	obj, ok := s.data[key]
+	obj, ok := shard.data[key]
 	if !ok {
 		return []byte{}, fmt.Errorf("key not found: %s", key)
 	}
@@ -94,7 +122,33 @@ func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) 
 		return []byte{}, fmt.Errorf("unsupported type: %v", obj.Type)
 	}
 
-	s.mu.Unlock()
+	return []byte(strconv.FormatInt(obj.Value.(int64), 10)), nil
+}
 
-	return s.Get(key)
+func (s *InMemoryStorage) Expire(key string, expireTime time.Time) error {
+	shard := s.getShard(key)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+
+	obj, ok := shard.data[key]
+	if !ok {
+		return fmt.Errorf("key not found: %s", key)
+	}
+
+	obj.ExpireTime = expireTime
+	return nil
+}
+
+func (s *InMemoryStorage) getShard(key string) *StorageShard {
+	keyHash := murmur3.Sum32([]byte(key))
+	shardKey := keyHash % shardCount
+	shard, ok := s.shards[shardKey]
+	if !ok {
+		s.shards[shardKey] = &StorageShard{
+			data: make(map[string]*StorageValue),
+		}
+		shard = s.shards[shardKey]
+	}
+	log.Printf("getShard - key = %s , keyHash = %v , shard = %v", key, keyHash, shardKey)
+	return shard
 }
