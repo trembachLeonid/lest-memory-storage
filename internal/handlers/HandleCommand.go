@@ -67,10 +67,12 @@ func HandleCommand(command *string, storage storage.Storage) ([]byte, error) {
 			return operationError, err
 		}
 		response, err = storage.Increment(key, -incValue)
+	case "CONFIG":
+		return []byte("*0\r\n"), nil
 	default:
 		response, err = unknownCommand, nil
 	}
 
-	log.Printf("HANDLE - %s, { \"%s\": \"%s\" } - %s", action, key, string(*value), string(response))
+	log.Printf("HANDLE - %s, { \"%s\": \"%v\" } - %s", action, key, value, string(response))
 	return response, err
 }
