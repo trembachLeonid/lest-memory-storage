@@ -11,3 +11,10 @@ Running Redis:
 ```redis-benchmark -h 127.0.0.1 -p 6379 -t set -c 1 -n 10000 -d 64 -q```
 
 ```memtier_benchmark -s 127.0.0.1 -p 6379 --protocol=redis --command="SET __key__ __data__" -t 1 -c 1```
+
+### FIRST WORKING VERSION BENCHMARK TESTS:
+#### 1 connection 1 thread SET commands
+##### Redis
+~45000op/s
+##### Lest
+~7500op/s
