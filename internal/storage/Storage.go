@@ -35,7 +35,7 @@ type InMemoryStorage struct {
 
 func NewInMemoryStorage() *InMemoryStorage {
 	return &InMemoryStorage{
-		data: make(map[string]*StorageValue),
+		data: make(map[string]*StorageValue, 10000),
 	}
 }
 

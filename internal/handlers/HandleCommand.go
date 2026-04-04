@@ -13,9 +13,9 @@ import (
 
 var unknownCommand = []byte("unknown command")
 var operationError = []byte("operation error")
-var quit = []byte("BYE")
-var ok = []byte("OK")
-var pong = []byte("PONG")
+var quit = []byte("+BYE")
+var ok = []byte("+OK")
+var pong = []byte("+PONG")
 
 func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Storage) ([]byte, error) {
 	logger := logging.FromContext(*ctx)

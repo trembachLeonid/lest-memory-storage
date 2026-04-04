@@ -50,6 +50,11 @@ func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Stora
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	parser := helpers.NewCommandParser(reader)
+	writer := bufio.NewWriter(conn)
+
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		tcp.SetNoDelay(true)
+	}
 
 	logger := logging.FromContext(*ctx)
 
@@ -77,9 +82,10 @@ func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Stora
 		}
 
 		response = append(response, '\r', '\n')
-		_, err = conn.Write(response)
+		_, err = writer.Write(response)
 		if err != nil {
 			logger.Error("Server write error", "error", err)
 		}
+		writer.Flush()
 	}
 }
