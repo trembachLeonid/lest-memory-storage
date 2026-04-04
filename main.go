@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 
-	"github.com/google/uuid"
 	"github.com/trembachLeonid/lest-memory-storage/internal/handlers"
 	"github.com/trembachLeonid/lest-memory-storage/internal/helpers"
 	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
@@ -36,10 +35,9 @@ func main() {
 			continue
 		}
 
-		connectionId := uuid.New().String()
-		logger = logger.With("address", conn.RemoteAddr().String()).With("connection_id", connectionId)
+		logger = logging.AddConnectionId(logger)
 
-		logger.Info("CONNECTION ACCEPTED", "address", conn.RemoteAddr().String(), "connection_id", connectionId)
+		logger.Info("CONNECTION ACCEPTED", "address", conn.RemoteAddr().String())
 
 		ctx := context.WithValue(context.Background(), "logger", logger)
 		go handleConnection(&ctx, conn, storage)
@@ -68,8 +66,7 @@ func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Stora
 			return
 		}
 
-		correlationId := uuid.New().String()
-		logger = logger.With("correlation_id", correlationId)
+		logger = logging.AddCorrelationId(logger)
 		*ctx = context.WithValue(*ctx, "logger", logger)
 
 		logger.Info("Message received", "message", params[0])

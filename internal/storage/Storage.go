@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -80,10 +79,8 @@ func (s *InMemoryStorage) Get(key string) ([]byte, error) {
 	case INTEGER:
 		return []byte(strconv.FormatInt(value.Value.(int64), 10)), nil
 	default:
-		log.Printf("Unsupported type for key %s: %v", key, value.Type)
+		return nil, fmt.Errorf("key not found: %s", key)
 	}
-
-	return []byte{}, fmt.Errorf("key not found: %s", key)
 }
 
 func (s *InMemoryStorage) Delete(key string) error {
@@ -149,6 +146,5 @@ func (s *InMemoryStorage) getShard(key string) *StorageShard {
 		}
 		shard = s.shards[shardKey]
 	}
-	log.Printf("getShard - key = %s , keyHash = %v , shard = %v", key, keyHash, shardKey)
 	return shard
 }
