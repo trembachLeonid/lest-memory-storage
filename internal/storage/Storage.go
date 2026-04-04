@@ -39,9 +39,10 @@ func NewInMemoryStorage() *InMemoryStorage {
 	}
 }
 
-func (s *InMemoryStorage) Set(key string, value *[]byte) error {
+func (s *InMemoryStorage) Set(key string, value *[]byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.data[key] = &StorageValue{Type: STRING, Value: *value}
-	return nil
 }
 
 func (s *InMemoryStorage) Get(key string) ([]byte, error) {
@@ -66,6 +67,9 @@ func (s *InMemoryStorage) Get(key string) ([]byte, error) {
 }
 
 func (s *InMemoryStorage) Delete(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	delete(s.data, key)
 	return nil
 }
