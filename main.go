@@ -2,21 +2,27 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"io"
-	"log"
 	"net"
-	"strconv"
-	"strings"
 
+	"github.com/google/uuid"
 	"github.com/trembachLeonid/lest-memory-storage/internal/handlers"
+	"github.com/trembachLeonid/lest-memory-storage/internal/helpers"
 	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
+	"github.com/trembachLeonid/lest-memory-storage/logging"
 )
 
 func main() {
+	logger := logging.InitLogger()
+	defer logging.CloseLogger()
 
+	logger.Info("Service started", "port", 8090, "env", "local")
 	listener, err := net.Listen("tcp", ":8090")
+
 	if err != nil {
-		log.Fatal("Error listening:", err)
+		logger.Error("Error listening", "error", err)
 	}
 
 	defer listener.Close()
@@ -26,58 +32,54 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("Error accepting conn:", err)
+			logger.Error("Error accepting conn", "error", err)
 			continue
 		}
 
-		go handleConnection(conn, storage)
+		connectionId := uuid.New().String()
+		logger = logger.With("address", conn.RemoteAddr().String()).With("connection_id", connectionId)
+
+		logger.Info("CONNECTION ACCEPTED", "address", conn.RemoteAddr().String(), "connection_id", connectionId)
+
+		ctx := context.WithValue(context.Background(), "logger", logger)
+		go handleConnection(&ctx, conn, storage)
 	}
 }
 
-func handleConnection(conn net.Conn, storage storage.Storage) {
+func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Storage) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
+	parser := helpers.NewCommandParser(reader)
+
+	logger := logging.FromContext(*ctx)
 
 	for {
-		message, err := reader.ReadString('\n')
+		params, err := parser.Parse(ctx)
+		if bytes.Equal(params[0], helpers.QUIT) {
+			break
+		}
 		if err != nil && err != io.EOF {
-			log.Printf("Read error: %v", err)
+			logger.Error("Read error", "error", err)
 			return
 		}
 
-		var entryType = message[0]
-		if entryType != '*' {
-			log.Printf("Unsupported entry type: %v", entryType)
-			continue
-		}
+		correlationId := uuid.New().String()
+		logger = logger.With("correlation_id", correlationId)
+		*ctx = context.WithValue(*ctx, "logger", logger)
 
-		paramCount, err := strconv.Atoi(strings.TrimSpace(message[1:]))
-		if err != nil {
-			log.Printf("Error parsing param count: %v", err)
-		}
+		logger.Info("Message received", "message", params[0])
 
-		for i := 0; i < paramCount; i++ {
-			log.Printf("Parameter %d: %v", i, message[1:])
-		}
-		continue
-
-		ackMsg := strings.TrimSpace(message)
-		log.Printf("Message received: %s", ackMsg)
-
-		response, err := handlers.HandleCommand(&ackMsg, storage)
+		response, err := handlers.HandleCommand(ctx, params, storage)
 
 		if err != nil {
-			log.Printf("Error retrieving value - %v", err)
-			response = []byte("ERROR RETRIEVING VALUE")
+			logger.Error("Error retrieving value", "error", err)
+			response = helpers.OPERATION_ERROR
 		}
 
 		response = append(response, '\r', '\n')
 		_, err = conn.Write(response)
-		if string(response) == "QUIT" {
-			break
-		}
 		if err != nil {
-			log.Printf("Server write error: %v", err)
+			logger.Error("Server write error", "error", err)
 		}
 	}
 }

@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"log"
 	"strconv"
-	"strings"
 
+	"github.com/trembachLeonid/lest-memory-storage/internal/helpers"
 	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
+	"github.com/trembachLeonid/lest-memory-storage/logging"
 )
 
 var unknownCommand = []byte("unknown command")
@@ -14,39 +17,32 @@ var quit = []byte("BYE")
 var ok = []byte("OK")
 var pong = []byte("PONG")
 
-func HandleCommand(command *string, storage storage.Storage) ([]byte, error) {
+func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Storage) ([]byte, error) {
+	logger := logging.FromContext(*ctx)
+	logger.Info("HANDLE COMMAND", "command", command)
+
 	var err error
 	var response []byte = ok
-	var commandParts []string
-	if command != nil {
-		commandParts = strings.Split(*command, " ")
-	} else {
-		return unknownCommand, nil
-	}
-	action := strings.ToUpper(commandParts[0])
 
-	if action == "QUIT" {
-		return quit, nil
-	}
+	action := command[0]
 
 	var value *[]byte
-	key := commandParts[1]
+	key := string(command[1])
 
-	if len(commandParts) > 2 {
-		valueBytes := []byte(commandParts[2])
+	if len(command) > 2 {
+		valueBytes := command[2]
 		value = &valueBytes
 	}
 
-	switch action {
-	case "PING":
+	if bytes.Equal(action, helpers.PING) {
 		response, err = pong, nil
-	case "SET":
+	} else if bytes.Equal(action, helpers.SET) {
 		err = storage.Set(key, value)
-	case "GET":
+	} else if bytes.Equal(action, helpers.GET) {
 		response, err = storage.Get(key)
-	case "DEL":
+	} else if bytes.Equal(action, helpers.DEL) {
 		err = storage.Delete(key)
-	case "INC":
+	} else if bytes.Equal(action, helpers.INC) {
 		if value == nil || len(*value) == 0 {
 			value = &[]byte{'1'}
 		}
@@ -57,7 +53,7 @@ func HandleCommand(command *string, storage storage.Storage) ([]byte, error) {
 		}
 
 		response, err = storage.Increment(key, incValue)
-	case "DEC":
+	} else if bytes.Equal(action, helpers.DEC) {
 		if value == nil || len(*value) == 0 {
 			value = &[]byte{'1'}
 		}
@@ -67,9 +63,9 @@ func HandleCommand(command *string, storage storage.Storage) ([]byte, error) {
 			return operationError, err
 		}
 		response, err = storage.Increment(key, -incValue)
-	case "CONFIG":
+	} else if bytes.Equal(action, helpers.CONFIG) {
 		return []byte("*0\r\n"), nil
-	default:
+	} else {
 		response, err = unknownCommand, nil
 	}
 
