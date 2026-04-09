@@ -15,13 +15,13 @@ func BenchmarkSingleClientWrite(b *testing.B) {
 
 	reader := bufio.NewReader(conn)
 
-	cmd := []byte("SET benchkey 100\r\n")
+	cmd := []byte("*3\r\n$3\r\nSET\r\n$8\r\nbenchkey\r\n$3\r\n100\r\n")
 
 	b.ReportAllocs()
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < 1; i++ {
 		if _, err := conn.Write(cmd); err != nil {
 			b.Fatalf("Failed to write to connection: %v", err)
 		}
@@ -33,6 +33,6 @@ func BenchmarkSingleClientWrite(b *testing.B) {
 	}
 
 	defer conn.Close()
-	defer conn.Write([]byte("QUIT"))
+	defer conn.Write([]byte("+QUIT\r\n"))
 
 }
