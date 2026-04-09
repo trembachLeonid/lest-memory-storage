@@ -23,19 +23,22 @@ func NewCommandParser(reader *bufio.Reader) *CommandParser {
 func (cp *CommandParser) Parse(ctx *context.Context) ([][]byte, error) {
 	logger := logging.FromContext(*ctx)
 
-	message, err := cp.reader.ReadString('\n')
-	if err != nil {
+	message, err := cp.reader.ReadBytes('\n')
+	if err != nil && err != io.EOF {
 		logger.Error("Error reading command", "error", err)
 		return nil, err
 	}
 
 	var entryType = message[0]
+	if entryType == '+' && string(message[1:2]) == "QUIT" {
+		return [][]byte{QUIT}, nil
+	}
 	if entryType != '*' {
 		logger.Error("Unsupported entry type", "type", entryType)
 		return nil, errors.New("unsupported entry type")
 	}
 
-	paramCount, err := strconv.Atoi(strings.TrimSpace(message[1:]))
+	paramCount, err := strconv.Atoi(string(message[1:2]))
 	if err != nil {
 		logger.Error("Error parsing param count", "error", err)
 	}

@@ -2,16 +2,12 @@ package storage
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/spaolacci/murmur3"
 )
-
-var val, _ = strconv.ParseUint(os.Getenv("SHARD_COUNT"), 10, 32)
-var shardCount = uint32(1024)
 
 type Storage interface {
 	Set(key string, value *[]byte) error
@@ -36,30 +32,32 @@ type StorageValue struct {
 }
 
 type StorageShard struct {
-	mu   sync.RWMutex
-	data map[string]*StorageValue
+	mu   *sync.RWMutex
+	data map[string]StorageValue
 }
 
 type InMemoryStorage struct {
-	shards map[uint32]*StorageShard
+	shardCount uint32
+	shards     map[uint32]StorageShard
 }
 
-func NewInMemoryStorage() *InMemoryStorage {
-	return &InMemoryStorage{
-		shards: make(map[uint32]*StorageShard, shardCount),
+func NewInMemoryStorage(shardCount uint32) InMemoryStorage {
+	return InMemoryStorage{
+		shardCount: shardCount,
+		shards:     make(map[uint32]StorageShard, shardCount),
 	}
 }
 
-func (s *InMemoryStorage) Set(key string, value *[]byte) error {
+func (s InMemoryStorage) Set(key string, value *[]byte) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	shard.data[key] = &StorageValue{Type: STRING, Value: *value}
+	shard.data[key] = StorageValue{Type: STRING, Value: *value}
 	return nil
 }
 
-func (s *InMemoryStorage) Get(key string) ([]byte, error) {
+func (s InMemoryStorage) Get(key string) ([]byte, error) {
 	shard := s.getShard(key)
 	shard.mu.RLock()
 	defer shard.mu.RUnlock()
@@ -83,7 +81,7 @@ func (s *InMemoryStorage) Get(key string) ([]byte, error) {
 	}
 }
 
-func (s *InMemoryStorage) Delete(key string) error {
+func (s InMemoryStorage) Delete(key string) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -93,7 +91,7 @@ func (s *InMemoryStorage) Delete(key string) error {
 	return nil
 }
 
-func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
+func (s InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -122,7 +120,7 @@ func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) 
 	return []byte(strconv.FormatInt(obj.Value.(int64), 10)), nil
 }
 
-func (s *InMemoryStorage) Expire(key string, expireTime time.Time) error {
+func (s InMemoryStorage) Expire(key string, expireTime time.Time) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -136,13 +134,13 @@ func (s *InMemoryStorage) Expire(key string, expireTime time.Time) error {
 	return nil
 }
 
-func (s *InMemoryStorage) getShard(key string) *StorageShard {
+func (s InMemoryStorage) getShard(key string) StorageShard {
 	keyHash := murmur3.Sum32([]byte(key))
-	shardKey := keyHash % shardCount
+	shardKey := keyHash % s.shardCount
 	shard, ok := s.shards[shardKey]
 	if !ok {
-		s.shards[shardKey] = &StorageShard{
-			data: make(map[string]*StorageValue),
+		s.shards[shardKey] = StorageShard{
+			data: make(map[string]StorageValue),
 		}
 		shard = s.shards[shardKey]
 	}

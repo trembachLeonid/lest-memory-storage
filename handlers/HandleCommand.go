@@ -6,9 +6,9 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/trembachLeonid/lest-memory-storage/internal/helpers"
-	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
+	"github.com/trembachLeonid/lest-memory-storage/helpers"
 	"github.com/trembachLeonid/lest-memory-storage/logging"
+	"github.com/trembachLeonid/lest-memory-storage/storage"
 )
 
 var unknownCommand = []byte("unknown command")

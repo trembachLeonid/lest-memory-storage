@@ -6,16 +6,20 @@ import (
 	"context"
 	"io"
 	"net"
+	"strconv"
 
-	"github.com/trembachLeonid/lest-memory-storage/internal/handlers"
-	"github.com/trembachLeonid/lest-memory-storage/internal/helpers"
-	"github.com/trembachLeonid/lest-memory-storage/internal/storage"
+	"github.com/trembachLeonid/lest-memory-storage/env"
+	"github.com/trembachLeonid/lest-memory-storage/handlers"
+	"github.com/trembachLeonid/lest-memory-storage/helpers"
 	"github.com/trembachLeonid/lest-memory-storage/logging"
+	"github.com/trembachLeonid/lest-memory-storage/storage"
 )
 
 func main() {
 	logger := logging.InitLogger()
 	defer logging.CloseLogger()
+
+	_ = env.Load()
 
 	logger.Info("Service started", "port", 8090, "env", "local")
 	listener, err := net.Listen("tcp", ":8090")
@@ -26,7 +30,8 @@ func main() {
 
 	defer listener.Close()
 
-	var storage storage.Storage = storage.NewInMemoryStorage()
+	var shards, _ = strconv.ParseInt(env.ShardCount.Get(), 10, 32)
+	var storage storage.Storage = storage.NewInMemoryStorage(uint32(shards))
 
 	for {
 		conn, err := listener.Accept()
