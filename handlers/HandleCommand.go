@@ -11,18 +11,12 @@ import (
 	"github.com/trembachLeonid/lest-memory-storage/storage"
 )
 
-var unknownCommand = []byte("unknown command")
-var operationError = []byte("operation error")
-var quit = []byte("+BYE")
-var ok = []byte("+OK")
-var pong = []byte("+PONG")
-
 func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Storage) ([]byte, error) {
 	logger := logging.FromContext(*ctx)
 	logger.Info("HANDLE COMMAND", "command", command)
 
 	var err error
-	var response []byte = ok
+	var response []byte = helpers.OK
 
 	action := command[0]
 
@@ -35,7 +29,7 @@ func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Stora
 	}
 
 	if bytes.Equal(action, helpers.PING) {
-		response, err = pong, nil
+		response, err = helpers.PONG, nil
 	} else if bytes.Equal(action, helpers.SET) {
 		err = storage.Set(key, value)
 	} else if bytes.Equal(action, helpers.GET) {
@@ -49,7 +43,7 @@ func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Stora
 
 		incValue, err := strconv.ParseInt(string(*value), 10, 64)
 		if err != nil {
-			return operationError, err
+			return helpers.OPERATION_ERROR, err
 		}
 
 		response, err = storage.Increment(key, incValue)
@@ -60,13 +54,13 @@ func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Stora
 
 		incValue, err := strconv.ParseInt(string(*value), 10, 64)
 		if err != nil {
-			return operationError, err
+			return helpers.OPERATION_ERROR, err
 		}
 		response, err = storage.Increment(key, -incValue)
 	} else if bytes.Equal(action, helpers.CONFIG) {
 		return []byte("*0\r\n"), nil
 	} else {
-		response, err = unknownCommand, nil
+		response, err = helpers.UNKNOWN_COMMAND, nil
 	}
 
 	log.Printf("HANDLE - %s, { \"%s\": \"%v\" } - %s", action, key, value, string(response))

@@ -140,6 +140,7 @@ func (s InMemoryStorage) getShard(key string) StorageShard {
 	shard, ok := s.shards[shardKey]
 	if !ok {
 		s.shards[shardKey] = StorageShard{
+			mu:   &sync.RWMutex{},
 			data: make(map[string]StorageValue),
 		}
 		shard = s.shards[shardKey]

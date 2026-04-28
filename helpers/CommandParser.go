@@ -38,7 +38,7 @@ func (cp *CommandParser) Parse(ctx *context.Context) ([][]byte, error) {
 		return nil, errors.New("unsupported entry type")
 	}
 
-	paramCount, err := strconv.Atoi(string(message[1:2]))
+	paramCount, err := strconv.Atoi(string(message[1:2])) // What if param count >= 10?
 	if err != nil {
 		logger.Error("Error parsing param count", "error", err)
 	}
