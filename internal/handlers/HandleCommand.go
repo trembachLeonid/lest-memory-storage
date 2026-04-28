@@ -37,7 +37,7 @@ func HandleCommand(ctx *context.Context, command [][]byte, storage storage.Stora
 	if bytes.Equal(action, helpers.PING) {
 		response, err = pong, nil
 	} else if bytes.Equal(action, helpers.SET) {
-		err = storage.Set(key, value)
+		storage.Set(key, value)
 	} else if bytes.Equal(action, helpers.GET) {
 		response, err = storage.Get(key)
 	} else if bytes.Equal(action, helpers.DEL) {

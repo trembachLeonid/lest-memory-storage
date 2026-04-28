@@ -8,7 +8,7 @@ import (
 )
 
 type Storage interface {
-	Set(key string, value *[]byte) error
+	Set(key string, value *[]byte)
 	Get(key string) ([]byte, error)
 	Delete(key string) error
 	Increment(key string, incValue int64) ([]byte, error)
