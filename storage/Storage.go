@@ -32,23 +32,30 @@ type StorageValue struct {
 }
 
 type StorageShard struct {
-	mu   *sync.RWMutex
+	mu   sync.RWMutex
 	data map[string]StorageValue
 }
 
 type InMemoryStorage struct {
 	shardCount uint32
-	shards     map[uint32]StorageShard
+	shards     []StorageShard
 }
 
-func NewInMemoryStorage(shardCount uint32) InMemoryStorage {
-	return InMemoryStorage{
+func NewInMemoryStorage(shardCount uint32) *InMemoryStorage {
+	s := InMemoryStorage{
 		shardCount: shardCount,
-		shards:     make(map[uint32]StorageShard, shardCount),
+		shards:     make([]StorageShard, shardCount),
 	}
+
+	for i := 0; i < int(s.shardCount); i++ {
+		s.shards[i] = StorageShard{
+			data: make(map[string]StorageValue),
+		}
+	}
+	return &s
 }
 
-func (s InMemoryStorage) Set(key string, value *[]byte) error {
+func (s *InMemoryStorage) Set(key string, value *[]byte) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -57,7 +64,7 @@ func (s InMemoryStorage) Set(key string, value *[]byte) error {
 	return nil
 }
 
-func (s InMemoryStorage) Get(key string) ([]byte, error) {
+func (s *InMemoryStorage) Get(key string) ([]byte, error) {
 	shard := s.getShard(key)
 	shard.mu.RLock()
 	defer shard.mu.RUnlock()
@@ -81,7 +88,7 @@ func (s InMemoryStorage) Get(key string) ([]byte, error) {
 	}
 }
 
-func (s InMemoryStorage) Delete(key string) error {
+func (s *InMemoryStorage) Delete(key string) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -91,7 +98,7 @@ func (s InMemoryStorage) Delete(key string) error {
 	return nil
 }
 
-func (s InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
+func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -120,7 +127,7 @@ func (s InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
 	return []byte(strconv.FormatInt(obj.Value.(int64), 10)), nil
 }
 
-func (s InMemoryStorage) Expire(key string, expireTime time.Time) error {
+func (s *InMemoryStorage) Expire(key string, expireTime time.Time) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
@@ -134,16 +141,9 @@ func (s InMemoryStorage) Expire(key string, expireTime time.Time) error {
 	return nil
 }
 
-func (s InMemoryStorage) getShard(key string) StorageShard {
+func (s *InMemoryStorage) getShard(key string) *StorageShard {
 	keyHash := murmur3.Sum32([]byte(key))
 	shardKey := keyHash % s.shardCount
-	shard, ok := s.shards[shardKey]
-	if !ok {
-		s.shards[shardKey] = StorageShard{
-			mu:   &sync.RWMutex{},
-			data: make(map[string]StorageValue),
-		}
-		shard = s.shards[shardKey]
-	}
+	shard := &s.shards[shardKey]
 	return shard
 }

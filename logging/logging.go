@@ -7,20 +7,20 @@ import (
 	"os"
 
 	"github.com/google/uuid"
-	"github.com/trembachLeonid/lest-memory-storage/env"
 )
 
 var file *os.File
+var environment = "production"
 
 func InitLogger() *slog.Logger {
 	var logger *slog.Logger
-	if env.Env.Get() == "development" {
+	if environment == "development" {
 		file, _ = os.OpenFile("./logs/app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 		multiWriter := io.MultiWriter(os.Stdout, file)
 		logger = slog.New(slog.NewJSONHandler(multiWriter, nil))
 		slog.SetDefault(logger)
-	} else if env.Env.Get() == "production" {
+	} else if environment == "production" {
 		programLevel := &slog.LevelVar{}
 		programLevel.Set(slog.LevelError)
 
@@ -52,14 +52,14 @@ func AddAttribute(logger *slog.Logger, name string, value string) *slog.Logger {
 }
 
 func AddCorrelationId(logger *slog.Logger) *slog.Logger {
-	if env.Env.Get() == "development" {
+	if environment == "development" {
 		return AddAttribute(logger, "correlation_id", uuid.New().String())
 	}
 	return logger
 }
 
 func AddConnectionId(logger *slog.Logger) *slog.Logger {
-	if env.Env.Get() == "development" {
+	if environment == "development" {
 		return AddAttribute(logger, "connection_id", uuid.New().String())
 	}
 	return logger
