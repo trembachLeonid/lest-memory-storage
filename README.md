@@ -1,16 +1,15 @@
 ### lest-memory-storage
 
-#### Benchmarking along with Redis using `redis-benchmark`
+#### Benchmarking along with Redis using `memtier_benchmark`
 
 Running Lest:
-```redis-benchmark -h 127.0.0.1 -p 8090 -t set -c 1 -n 10000 -d 64 -q```
-
 ```memtier_benchmark -s 127.0.0.1 -p 8090 --protocol=redis --command="SET __key__ __data__" -t 1 -c 1```
 
 Running Redis:
-```redis-benchmark -h 127.0.0.1 -p 6379 -t set -c 1 -n 10000 -d 64 -q```
-
 ```memtier_benchmark -s 127.0.0.1 -p 6379 --protocol=redis --command="SET __key__ __data__" -t 1 -c 1```
+
+## NOTE
+Yet all the benchmarks were executed locally.
 
 # FIRST WORKING VERSION BENCHMARK TESTS:
 ## 1 connection 1 thread SET commands
@@ -25,3 +24,16 @@ Running Redis:
 ### Conclusion
 First implementation handles an impressive amount of load. While having only one basic Map storage with single Mutex lock it does a good work with 1 concurrent connection and shows a solid degradation of it's operation speed with multiple concurrent connections.
 Also, it's really important to do wise, quiet logging of exclusively the most important information
+
+# SHARDED MEMORY STORAGE:
+## 1 connection 1 thread SET commands
+### Redis
+~45000op/s
+### Lest
+~39000op/s
+
+## 2 connection 1 thread SET commands
+### Redis
+~83000op/s
+### Lest
+~73000op/s
