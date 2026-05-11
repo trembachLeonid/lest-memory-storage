@@ -10,6 +10,8 @@ Running Redis:
 
 ## NOTE
 Yet all the benchmarks were executed locally.
+`dev` branch contains basic implementation of memory KV storage
+`sharding` branch contains implementation of sharded memory storage + key expiration policy implemented with validation on read
 
 # FIRST WORKING VERSION BENCHMARK TESTS:
 ## 1 connection 1 thread SET commands
