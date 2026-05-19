@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/trembachLeonid/lest-memory-storage/env"
 	"github.com/trembachLeonid/lest-memory-storage/handlers"
@@ -31,7 +32,20 @@ func main() {
 	defer listener.Close()
 
 	var shards, _ = strconv.ParseInt(env.ShardCount.Get(), 10, 32)
-	var storage storage.Storage = storage.NewInMemoryStorage(uint32(shards))
+	store := storage.NewInMemoryStorage(uint32(shards))
+	list := storage.LinkedList[int64]{}
+	bag := handlers.HandleBag{
+		S:       store,
+		ExpireL: &list,
+	}
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			go bag.ExecuteRoutine()
+		}
+	}()
 
 	for {
 		conn, err := listener.Accept()
@@ -45,11 +59,11 @@ func main() {
 		logger.Info("CONNECTION ACCEPTED", "address", conn.RemoteAddr().String())
 
 		ctx := context.WithValue(context.Background(), "logger", logger)
-		go handleConnection(&ctx, conn, storage)
+		go handleConnection(&ctx, conn, &bag)
 	}
 }
 
-func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Storage) {
+func handleConnection(ctx *context.Context, conn net.Conn, bag *handlers.HandleBag) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	parser := helpers.NewCommandParser(reader)
@@ -64,6 +78,9 @@ func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Stora
 	for {
 		params, err := parser.Parse(ctx)
 		if bytes.Equal(params[0], helpers.QUIT) {
+			response := append(helpers.OK, helpers.CRLF...)
+			writer.Write(response)
+			writer.Flush()
 			break
 		}
 		if err != nil && err != io.EOF {
@@ -76,14 +93,14 @@ func handleConnection(ctx *context.Context, conn net.Conn, storage storage.Stora
 
 		logger.Info("Message received", "message", params[0])
 
-		response, err := handlers.HandleCommand(ctx, params, storage)
+		response, err := handlers.HandleCommand(ctx, params, bag)
 
 		if err != nil {
 			logger.Error("Error retrieving value", "error", err)
 			response = helpers.OPERATION_ERROR
 		}
 
-		response = append(response, '\r', '\n')
+		response = append(response, helpers.CRLF...)
 		_, err = writer.Write(response)
 		if err != nil {
 			logger.Error("Server write error", "error", err)

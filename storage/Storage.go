@@ -10,10 +10,11 @@ import (
 )
 
 type Storage interface {
-	Set(key string, value *[]byte) error
-	Get(key string) ([]byte, error)
-	Delete(key string) error
+	Set(key string, value *[]byte)
+	Get(key string) *StorageValue
+	Delete(key string)
 	Increment(key string, incValue int64) ([]byte, error)
+	Expire(key string, expireTime int64) error
 }
 
 type ValueType int
@@ -28,7 +29,7 @@ const (
 type StorageValue struct {
 	Type       ValueType
 	Value      any
-	ExpireTime time.Time
+	ExpireTime int64
 }
 
 type StorageShard struct {
@@ -55,47 +56,37 @@ func NewInMemoryStorage(shardCount uint32) *InMemoryStorage {
 	return &s
 }
 
-func (s *InMemoryStorage) Set(key string, value *[]byte) error {
+func (s *InMemoryStorage) Set(key string, value *[]byte) {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
 	shard.data[key] = StorageValue{Type: STRING, Value: *value}
-	return nil
 }
 
-func (s *InMemoryStorage) Get(key string) ([]byte, error) {
+func (s *InMemoryStorage) Get(key string) *StorageValue {
 	shard := s.getShard(key)
 	shard.mu.RLock()
 	defer shard.mu.RUnlock()
 
 	value, ok := shard.data[key]
 	if !ok {
-		return []byte{}, fmt.Errorf("key not found: %s", key)
+		return nil
 	}
-	if !value.ExpireTime.IsZero() && value.ExpireTime.Before(time.Now()) {
+	if value.ExpireTime != 0 && value.ExpireTime < time.Now().Unix() {
 		s.Delete(key)
-		return []byte{}, fmt.Errorf("key not found: %s", key)
+		return nil
 	}
 
-	switch value.Type {
-	case STRING:
-		return value.Value.([]byte), nil
-	case INTEGER:
-		return []byte(strconv.FormatInt(value.Value.(int64), 10)), nil
-	default:
-		return nil, fmt.Errorf("key not found: %s", key)
-	}
+	return &value
 }
 
-func (s *InMemoryStorage) Delete(key string) error {
+func (s *InMemoryStorage) Delete(key string) {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
 	delete(shard.data, key)
-
-	return nil
 }
 
 func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) {
@@ -123,11 +114,12 @@ func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) 
 	default:
 		return []byte{}, fmt.Errorf("unsupported type: %v", obj.Type)
 	}
+	shard.data[key] = obj
 
 	return []byte(strconv.FormatInt(obj.Value.(int64), 10)), nil
 }
 
-func (s *InMemoryStorage) Expire(key string, expireTime time.Time) error {
+func (s *InMemoryStorage) Expire(key string, expireTime int64) error {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
