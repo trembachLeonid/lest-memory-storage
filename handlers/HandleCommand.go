@@ -40,7 +40,7 @@ func handlePing(_ [][]byte, _ *HandleBag) ([]byte, error) {
 
 func handleSet(command [][]byte, bag *HandleBag) ([]byte, error) {
 	value := command[2]
-	bag.S.Set(string(command[1]), &value)
+	bag.S.Set(string(command[1]), value)
 	return helpers.OK, nil
 }
 
@@ -80,6 +80,27 @@ func handleExpire(command [][]byte, bag *HandleBag) ([]byte, error) {
 	bag.ExpireL.Append(key, expiryTime)
 	return helpers.OK, err
 }
+
+// func handleSetExpire(command [][]byte, bag *HandleBag) ([]byte, error) {
+// 	value := command[2]
+// 	bag.S.Set(string(command[1]), value)
+// 	seconds, err := strconv.ParseInt(string(command[3]), 10, 64)
+
+// 	key := string(command[1])
+// 	expiryTime := time.Now().UTC().Unix() + seconds
+// 	err = bag.S.Expire(key, expiryTime)
+// 	if err != nil {
+// 		return helpers.OPERATION_ERROR, err
+// 	}
+
+// 	bag.ExpireL.Append(key, expiryTime)
+// 	return helpers.OK, err
+// }
+
+// func handleGetTtl(command [][]byte, bag *HandleBag) ([]byte, error) {
+// 	currTime := time.Now().UTC().Unix()
+
+// }
 
 func handleInc(command [][]byte, bag *HandleBag) ([]byte, error) {
 	by := []byte{'1'}

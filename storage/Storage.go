@@ -10,7 +10,7 @@ import (
 )
 
 type Storage interface {
-	Set(key string, value *[]byte)
+	Set(key string, value []byte)
 	Get(key string) *StorageValue
 	Delete(key string)
 	Increment(key string, incValue int64) ([]byte, error)
@@ -56,12 +56,12 @@ func NewInMemoryStorage(shardCount uint32) *InMemoryStorage {
 	return &s
 }
 
-func (s *InMemoryStorage) Set(key string, value *[]byte) {
+func (s *InMemoryStorage) Set(key string, value []byte) {
 	shard := s.getShard(key)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	shard.data[key] = StorageValue{Type: STRING, Value: *value}
+	shard.data[key] = StorageValue{Type: STRING, Value: value}
 }
 
 func (s *InMemoryStorage) Get(key string) *StorageValue {
