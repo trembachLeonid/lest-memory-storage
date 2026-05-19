@@ -67,17 +67,24 @@ func (s *InMemoryStorage) Set(key string, value []byte) {
 func (s *InMemoryStorage) Get(key string) *StorageValue {
 	shard := s.getShard(key)
 	shard.mu.RLock()
-	defer shard.mu.RUnlock()
 
 	value, ok := shard.data[key]
 	if !ok {
-		return nil
-	}
-	if value.ExpireTime != 0 && value.ExpireTime < time.Now().Unix() {
-		s.Delete(key)
+		shard.mu.RUnlock()
 		return nil
 	}
 
+	if value.ExpireTime != 0 && value.ExpireTime < time.Now().Unix() {
+		shard.mu.RUnlock()
+		shard.mu.Lock()
+
+		delete(shard.data, key)
+
+		shard.mu.Unlock()
+		return nil
+	}
+
+	shard.mu.RUnlock()
 	return &value
 }
 
@@ -130,6 +137,7 @@ func (s *InMemoryStorage) Expire(key string, expireTime int64) error {
 	}
 
 	obj.ExpireTime = expireTime
+	shard.data[key] = obj
 	return nil
 }
 

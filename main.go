@@ -39,13 +39,14 @@ func main() {
 		ExpireL: &list,
 	}
 
-	go func() {
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			go bag.ExecuteRoutine()
-		}
-	}()
+	rm := handlers.RoutineManager{
+		Routines: []handlers.Routine{
+			{Ticker: time.NewTicker(10 * time.Second), RoutineHandler: handlers.NewExpireRoutine(&bag)},
+			{Ticker: time.NewTicker(12 * time.Second), RoutineHandler: &handlers.TestRoutine{}},
+		},
+	}
+
+	go rm.Handle()
 
 	for {
 		conn, err := listener.Accept()

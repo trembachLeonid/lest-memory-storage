@@ -7,13 +7,35 @@ import (
 	"github.com/trembachLeonid/lest-memory-storage/storage"
 )
 
-type Routine interface {
-	ExecuteRoutine()
+type RoutineHandler interface {
+	execute()
 }
 
-func (bag *HandleBag) ExecuteRoutine() {
-	l := bag.ExpireL
-	s := bag.S
+type Routine struct {
+	Ticker         *time.Ticker
+	RoutineHandler RoutineHandler
+}
+
+func (sr *Routine) runRoutine() {
+	defer sr.Ticker.Stop()
+	for range sr.Ticker.C {
+		go sr.RoutineHandler.execute()
+	}
+}
+
+type ExpireRoutine struct {
+	Bag *HandleBag
+}
+
+type TestRoutine struct{}
+
+func NewExpireRoutine(bag *HandleBag) *ExpireRoutine {
+	return &ExpireRoutine{Bag: bag}
+}
+
+func (r *ExpireRoutine) execute() {
+	l := r.Bag.ExpireL
+	s := r.Bag.S
 	currentTimestamp := time.Now().UTC().Unix()
 	node := l.GetHead()
 	var prev *storage.LinkedNode[int64]
@@ -22,7 +44,6 @@ func (bag *HandleBag) ExecuteRoutine() {
 		if node.Value < currentTimestamp {
 			s.Delete(node.Key)
 			if node == l.GetHead() {
-				fmt.Println("Yes remove head")
 				l.RemoveHead()
 			} else {
 				l.RemoveNext(prev)
@@ -32,7 +53,8 @@ func (bag *HandleBag) ExecuteRoutine() {
 		}
 		node = node.Next
 	}
+}
 
-	fmt.Println(l.(*storage.LinkedList[int64]).Head)
-	fmt.Println(l.(*storage.LinkedList[int64]).Tail)
+func (r *TestRoutine) execute() {
+	fmt.Println("Test routine executed at", time.Now().UTC())
 }

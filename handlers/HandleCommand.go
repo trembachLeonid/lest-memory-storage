@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -39,8 +40,10 @@ func handlePing(_ [][]byte, _ *HandleBag) ([]byte, error) {
 }
 
 func handleSet(command [][]byte, bag *HandleBag) ([]byte, error) {
+	key := string(command[1])
+	fmt.Printf("Setting key: %s\n", key)
 	value := command[2]
-	bag.S.Set(string(command[1]), value)
+	bag.S.Set(key, value)
 	return helpers.OK, nil
 }
 
