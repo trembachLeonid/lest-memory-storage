@@ -1,4 +1,4 @@
-package handlers
+package routine
 
 type RoutineManager struct {
 	Routines []Routine

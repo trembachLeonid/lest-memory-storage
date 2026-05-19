@@ -3,7 +3,6 @@ package storage
 import (
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/spaolacci/murmur3"
@@ -32,11 +31,6 @@ type StorageValue struct {
 	ExpireTime int64
 }
 
-type StorageShard struct {
-	mu   sync.RWMutex
-	data map[string]StorageValue
-}
-
 type InMemoryStorage struct {
 	shardCount uint32
 	shards     []StorageShard
@@ -50,7 +44,8 @@ func NewInMemoryStorage(shardCount uint32) *InMemoryStorage {
 
 	for i := 0; i < int(s.shardCount); i++ {
 		s.shards[i] = StorageShard{
-			data: make(map[string]StorageValue),
+			data:       make(map[string]*StorageNode),
+			expiryList: &LinkedList[*StorageNode]{},
 		}
 	}
 	return &s
@@ -61,20 +56,20 @@ func (s *InMemoryStorage) Set(key string, value []byte) {
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	shard.data[key] = StorageValue{Type: STRING, Value: value}
+	shard.data[key] = &StorageNode{Key: key, SV: StorageValue{Type: STRING, Value: value}}
 }
 
 func (s *InMemoryStorage) Get(key string) *StorageValue {
 	shard := s.getShard(key)
 	shard.mu.RLock()
 
-	value, ok := shard.data[key]
+	node, ok := shard.data[key]
 	if !ok {
 		shard.mu.RUnlock()
 		return nil
 	}
 
-	if value.ExpireTime != 0 && value.ExpireTime < time.Now().Unix() {
+	if node.ExpireTime != 0 && node.ExpireTime < time.Now().Unix() {
 		shard.mu.RUnlock()
 		shard.mu.Lock()
 
@@ -85,7 +80,7 @@ func (s *InMemoryStorage) Get(key string) *StorageValue {
 	}
 
 	shard.mu.RUnlock()
-	return &value
+	return &node.SV
 }
 
 func (s *InMemoryStorage) Delete(key string) {
@@ -101,29 +96,29 @@ func (s *InMemoryStorage) Increment(key string, incValue int64) ([]byte, error) 
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	obj, ok := shard.data[key]
+	node, ok := shard.data[key]
 	if !ok {
 		return []byte{}, fmt.Errorf("key not found: %s", key)
 	}
 
-	switch obj.Type {
+	switch node.SV.Type {
 	case STRING:
-		converted, err := strconv.ParseInt(string(obj.Value.([]byte)), 10, 64)
+		converted, err := strconv.ParseInt(string(node.SV.Value.([]byte)), 10, 64)
 		if err != nil {
 			return []byte{}, fmt.Errorf("value is not a number: %s", key)
 		}
 		converted += incValue
-		obj.Type = INTEGER
-		obj.Value = converted
+		node.SV.Type = INTEGER
+		node.SV.Value = converted
 	case INTEGER:
-		newVal := obj.Value.(int64) + incValue
-		obj.Value = newVal
+		newVal := node.SV.Value.(int64) + incValue
+		node.SV.Value = newVal
 	default:
-		return []byte{}, fmt.Errorf("unsupported type: %v", obj.Type)
+		return []byte{}, fmt.Errorf("unsupported type: %v", node.SV.Type)
 	}
-	shard.data[key] = obj
+	shard.data[key] = node
 
-	return []byte(strconv.FormatInt(obj.Value.(int64), 10)), nil
+	return []byte(strconv.FormatInt(node.SV.Value.(int64), 10)), nil
 }
 
 func (s *InMemoryStorage) Expire(key string, expireTime int64) error {
@@ -131,14 +126,21 @@ func (s *InMemoryStorage) Expire(key string, expireTime int64) error {
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	obj, ok := shard.data[key]
+	node, ok := shard.data[key]
 	if !ok {
 		return fmt.Errorf("key not found: %s", key)
 	}
 
-	obj.ExpireTime = expireTime
-	shard.data[key] = obj
+	// TODO: Ensure that the same key is not added multiple times to the expiry list
+	if node.ExpireTime == 0 {
+		shard.expiryList.Append(node)
+	}
+	node.ExpireTime = expireTime
 	return nil
+}
+
+func (s *InMemoryStorage) GetExpiryList(shardIndex int) List[*StorageNode] {
+	return s.shards[shardIndex].expiryList
 }
 
 func (s *InMemoryStorage) getShard(key string) *StorageShard {

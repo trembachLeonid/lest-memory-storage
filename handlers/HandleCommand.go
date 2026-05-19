@@ -79,8 +79,6 @@ func handleExpire(command [][]byte, bag *HandleBag) ([]byte, error) {
 	if err != nil {
 		return helpers.OPERATION_ERROR, err
 	}
-
-	bag.ExpireL.Append(key, expiryTime)
 	return helpers.OK, err
 }
 

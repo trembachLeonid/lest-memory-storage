@@ -13,6 +13,7 @@ import (
 	"github.com/trembachLeonid/lest-memory-storage/handlers"
 	"github.com/trembachLeonid/lest-memory-storage/helpers"
 	"github.com/trembachLeonid/lest-memory-storage/logging"
+	"github.com/trembachLeonid/lest-memory-storage/routine"
 	"github.com/trembachLeonid/lest-memory-storage/storage"
 )
 
@@ -33,16 +34,14 @@ func main() {
 
 	var shards, _ = strconv.ParseInt(env.ShardCount.Get(), 10, 32)
 	store := storage.NewInMemoryStorage(uint32(shards))
-	list := storage.LinkedList[int64]{}
 	bag := handlers.HandleBag{
-		S:       store,
-		ExpireL: &list,
+		S: store,
 	}
 
-	rm := handlers.RoutineManager{
-		Routines: []handlers.Routine{
-			{Ticker: time.NewTicker(10 * time.Second), RoutineHandler: handlers.NewExpireRoutine(&bag)},
-			{Ticker: time.NewTicker(12 * time.Second), RoutineHandler: &handlers.TestRoutine{}},
+	rm := routine.RoutineManager{
+		Routines: []routine.Routine{
+			{Ticker: time.NewTicker(10 * time.Second), RoutineHandler: store},
+			{Ticker: time.NewTicker(12 * time.Second), RoutineHandler: &routine.TestRoutine{}},
 		},
 	}
 

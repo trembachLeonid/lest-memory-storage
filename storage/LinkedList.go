@@ -1,26 +1,25 @@
 package storage
 
-type List[T any] interface {
-	Append(key string, value T)
-	Get(key string) *T
+type List[T comparable] interface {
+	Append(value T)
+	Get(key T) *LinkedNode[T]
 	GetHead() *LinkedNode[T]
 	RemoveHead()
 	RemoveNext(*LinkedNode[T])
 }
 
-type LinkedNode[T any] struct {
-	Key   string
+type LinkedNode[T comparable] struct {
 	Value T
 	Next  *LinkedNode[T]
 }
 
-type LinkedList[T any] struct {
+type LinkedList[T comparable] struct {
 	Head *LinkedNode[T]
 	Tail *LinkedNode[T]
 }
 
-func (l *LinkedList[T]) Append(key string, value T) {
-	node := &LinkedNode[T]{Key: key, Value: value}
+func (l *LinkedList[T]) Append(value T) {
+	node := &LinkedNode[T]{Value: value}
 	if l.Head == nil {
 		l.Head = node
 		l.Tail = node
@@ -30,14 +29,14 @@ func (l *LinkedList[T]) Append(key string, value T) {
 	}
 }
 
-func (l *LinkedList[T]) Get(key string) *T {
+func (l *LinkedList[T]) Get(key T) *LinkedNode[T] {
 	node := l.Head
 
-	for node != nil && node.Key != key {
+	for node != nil && node.Value != key {
 		node = node.Next
 	}
 
-	return &node.Value
+	return node
 }
 
 func (l *LinkedList[T]) GetHead() *LinkedNode[T] {
