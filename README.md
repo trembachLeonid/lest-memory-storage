@@ -10,6 +10,7 @@ Running Redis:
 
 ## NOTE
 Yet all the benchmarks were executed locally.
+`main` branch contains the latest memory storage updates
 `dev` branch contains basic implementation of memory KV storage
 `sharding` branch contains implementation of sharded memory storage + key expiration policy implemented with validation on read + background cleanup
 
