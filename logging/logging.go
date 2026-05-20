@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 var file *os.File
@@ -43,4 +45,22 @@ func FromContext(ctx context.Context) *slog.Logger {
 	}
 
 	return slog.Default()
+}
+
+func AddAttribute(logger *slog.Logger, name string, value string) *slog.Logger {
+	return logger.With(name, value)
+}
+
+func AddCorrelationId(logger *slog.Logger) *slog.Logger {
+	if environment == "development" {
+		return AddAttribute(logger, "correlation_id", uuid.New().String())
+	}
+	return logger
+}
+
+func AddConnectionId(logger *slog.Logger) *slog.Logger {
+	if environment == "development" {
+		return AddAttribute(logger, "connection_id", uuid.New().String())
+	}
+	return logger
 }
